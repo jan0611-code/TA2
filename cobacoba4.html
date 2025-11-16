@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bilateral Filter Image Processor</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    #container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      text-align: center;
+    }
+    img {
+      width: 100%;
+      border-radius: 8px;
+    }
+    .controls {
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      max-width: 400px;
+      margin: 20px auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Bilateral Filter Image Processor</h1>
+  <input type="file" id="imageInput" accept="image/*" multiple />
+
+  <div class="controls">
+    <h3>Adjust Bilateral Filter</h3>
+    <label>Sigma Color: <span id="sigmaColorValue">80</span></label>
+    <input type="range" id="sigmaColor" min="10" max="200" value="80"><br><br>
+
+    <label>Sigma Space: <span id="sigmaSpaceValue">80</span></label>
+    <input type="range" id="sigmaSpace" min="10" max="200" value="80"><br>
+  </div>
+
+  <div id="container"></div>
+
+  <script>
+    const input = document.getElementById("imageInput");
+    const container = document.getElementById("container");
+
+    const sigmaColorSlider = document.getElementById("sigmaColor");
+    const sigmaSpaceSlider = document.getElementById("sigmaSpace");
+    const sigmaColorValue = document.getElementById("sigmaColorValue");
+    const sigmaSpaceValue = document.getElementById("sigmaSpaceValue");
+
+    sigmaColorSlider.oninput = () => sigmaColorValue.textContent = sigmaColorSlider.value;
+    sigmaSpaceSlider.oninput = () => sigmaSpaceValue.textContent = sigmaSpaceSlider.value;
+
+    input.addEventListener("change", () => {
+      container.innerHTML = "";
+
+      Array.from(input.files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const originalSrc = e.target.result;
+          const img = new Image();
+          img.src = originalSrc;
+
+          img.onload = () => {
+            const size = 128;
+
+            // Resize canvas
+            const resizeCanvas = document.createElement("canvas");
+            resizeCanvas.width = size;
+            resizeCanvas.height = size;
+            const resizeCtx = resizeCanvas.getContext("2d");
+            resizeCtx.drawImage(img, 0, 0, size, size);
+
+            // Copy to bilateral canvas
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            canvas.width = size;
+            canvas.height = size;
+            ctx.drawImage(resizeCanvas, 0, 0);
+
+            function applyBilateral() {
+              const diameter = 7;
+              const sigmaColor = parseInt(sigmaColorSlider.value);
+              const sigmaSpace = parseInt(sigmaSpaceSlider.value);
+              const radius = Math.floor(diameter / 2);
+
+              const imageData = ctx.getImageData(0, 0, size, size);
+              const data = imageData.data;
+              const copy = new Uint8ClampedArray(data);
+
+              function gaussian(x, sigma) {
+                return Math.exp(-(x * x) / (2 * sigma * sigma));
+              }
+
+              for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                  const idx = (y * size + x) * 4;
+                  const r0 = copy[idx], g0 = copy[idx+1], b0 = copy[idx+2];
+
+                  let sumR = 0, sumG = 0, sumB = 0;
+                  let wsum = 0;
+
+                  for (let dy = -radius; dy <= radius; dy++) {
+                    for (let dx = -radius; dx <= radius; dx++) {
+                      const ny = y + dy;
+                      const nx = x + dx;
+
+                      if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
+                        const nIdx = (ny * size + nx) * 4;
+                        const r = copy[nIdx], g = copy[nIdx+1], b = copy[nIdx+2];
+
+                        const wSpace = gaussian(Math.sqrt(dx*dx + dy*dy), sigmaSpace);
+
+                        const gray0 = (r0 + g0 + b0) / 3;
+                        const grayN = (r + g + b) / 3;
+                        const wColor = gaussian(gray0 - grayN, sigmaColor);
+
+                        const w = wSpace * wColor;
+
+                        sumR += r * w;
+                        sumG += g * w;
+                        sumB += b * w;
+                        wsum += w;
+                      }
+                    }
+                  }
+
+                  data[idx] = sumR / wsum;
+                  data[idx+1] = sumG / wsum;
+                  data[idx+2] = sumB / wsum;
+                }
+              }
+
+              ctx.putImageData(imageData, 0, 0);
+            }
+
+            applyBilateral();
+
+            sigmaColorSlider.oninput = () => { sigmaColorValue.textContent = sigmaColorSlider.value; applyBilateral(); };
+            sigmaSpaceSlider.oninput = () => { sigmaSpaceValue.textContent = sigmaSpaceSlider.value; applyBilateral(); };
+
+            const filteredSrc = canvas.toDataURL();
+
+            const card = document.createElement("div");
+            card.className = "card";
+            card.innerHTML = `
+              <h3>Original</h3>
+              <img src="${originalSrc}">
+              <h3>Bilateral Filtered</h3>
+              <img src="${filteredSrc}">
+            `;
+
+            container.appendChild(card);
+          };
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+  </script>
+</body>
+</html>
