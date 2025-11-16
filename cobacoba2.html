@@ -60,7 +60,17 @@
 
             canvas.width = img.width;
             canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
+            // Resize to 128x128 before processing
+            const resizeCanvas = document.createElement("canvas");
+            resizeCanvas.width = 128;
+            resizeCanvas.height = 128;
+            const resizeCtx = resizeCanvas.getContext("2d");
+            resizeCtx.drawImage(img, 0, 0, 128, 128);
+
+            // Now transfer resized image to main canvas
+            canvas.width = 128;
+            canvas.height = 128;
+            ctx.drawImage(resizeCanvas, 0, 0);(img, 0, 0);
 
             // Convert to grayscale
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
