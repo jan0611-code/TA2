@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image Processing: Bilateral + Adaptive Threshold + Skeleton</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    h1 { text-align: center; }
+    #container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      text-align: center;
+    }
+    img { width: 100%; border-radius: 8px; }
+    .controls {
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      max-width: 480px;
+      margin: 20px auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Image Processor (128×128): Bilateral → Adaptive Threshold → Skeleton</h1>
+  <input type="file" id="imageInput" accept="image/*" multiple />
+
+  <div class="controls">
+    <h3>Bilateral Filter Settings</h3>
+    <label>Sigma Color: <span id="sigmaColorValue">80</span></label>
+    <input type="range" id="sigmaColor" min="10" max="200" value="80"><br><br>
+
+    <label>Sigma Space: <span id="sigmaSpaceValue">80</span></label>
+    <input type="range" id="sigmaSpace" min="10" max="200" value="80"><br>
+  </div>
+
+  <div id="container"></div>
+
+<script>
+const input = document.getElementById("imageInput");
+const container = document.getElementById("container");
+
+const sigmaColorSlider = document.getElementById("sigmaColor");
+const sigmaSpaceSlider = document.getElementById("sigmaSpace");
+const sigmaColorValue = document.getElementById("sigmaColorValue");
+const sigmaSpaceValue = document.getElementById("sigmaSpaceValue");
+
+sigmaColorSlider.oninput = () => sigmaColorValue.textContent = sigmaColorSlider.value;
+sigmaSpaceSlider.oninput = () => sigmaSpaceValue.textContent = sigmaSpaceSlider.value;
+
+// Convert to grayscale
+function toGray(ctx, size) {
+  const imgData = ctx.getImageData(0, 0, size, size);
+  const data = imgData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const avg = (data[i] + data[i+1] + data[i+2]) / 3;
+    data[i] = data[i+1] = data[i+2] = avg;
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+// Adaptive threshold (Gaussian)
+function adaptiveThreshold(ctx, size) {
+  const src = ctx.getImageData(0, 0, size, size);
+  const dst = ctx.createImageData(size, size);
+
+  const data = src.data;
+  const out = dst.data;
+  const block = 9;
+  const C = 1;
+  const half = Math.floor(block/2);
+
+  function mean(x, y) {
+    let sum = 0, count = 0;
+    for (let dy = -half; dy <= half; dy++) {
+      for (let dx = -half; dx <= half; dx++) {
+        const ny = y + dy, nx = x + dx;
+        if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
+          const idx = (ny * size + nx) * 4;
+          sum += data[idx];
+          count++;
+        }
+      }
+    }
+    return sum / count;
+  }
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const idx = (y * size + x) * 4;
+      const pixel = data[idx];
+      const m = mean(x, y);
+      const v = pixel < m - C ? 0 : 255;
+      out[idx] = out[idx+1] = out[idx+2] = v;
+      out[idx+3] = 255;
+    }
+  }
+  return dst;
+}
+
+// Skeletonization
+function skeletonize(binaryCtx, size) {
+  const src = binaryCtx.getImageData(0, 0, size, size);
+  let img = new Uint8ClampedArray(src.data);
+  let skel = new Uint8ClampedArray(img.length).fill(0);
+
+  function erode(imgArr) {
+    const out = new Uint8ClampedArray(imgArr.length);
+    for (let y = 1; y < size - 1; y++) {
+      for (let x = 1; x < size - 1; x++) {
+        const idx = (y * size + x) * 4;
+        let ok = true;
+        for (let dy=-1; dy<=1; dy++){
+          for (let dx=-1; dx<=1; dx++){
+            const n = ((y+dy)*size + (x+dx))*4;
+            if (imgArr[n] === 255) ok = false;
+          }
+        }
+        out[idx] = out[idx+1] = out[idx+2] = ok ? 0 : 255;
+        out[idx+3] = 255;
+      }
+    }
+    return out;
+  }
+
+  while (true) {
+    // morphological open = erode -> dilate (approx simplified)
+    let eroded = erode(img);
+    
+    let temp = new Uint8ClampedArray(img.length);
+    for (let i = 0; i < img.length; i+=4) {
+      temp[i] = temp[i+1] = temp[i+2] = (img[i] === 255 && eroded[i] === 0) ? 255 : 0;
+      temp[i+3] = 255;
+    }
+
+    for (let i = 0; i < skel.length; i+=4) {
+      skel[i] = skel[i] | temp[i];
+      skel[i+1] = skel[i];
+      skel[i+2] = skel[i];
+      skel[i+3] = 255;
+    }
+
+    img = eroded;
+    if (!img.some(v => v === 255)) break;
+  }
+
+  const out = new ImageData(size, size);
+  for (let i = 0; i < skel.length; i++) out.data[i] = skel[i];
+  return out;
+}
+
+// Image upload handler
+input.addEventListener("change", () => {
+  container.innerHTML = "";
+
+  Array.from(input.files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const originalSrc = e.target.result;
+      const img = new Image();
+      img.src = originalSrc;
+
+      img.onload = () => {
+        const size = 128;
+
+        const base = document.createElement("canvas");
+        base.width = size;
+        base.height = size;
+        const bctx = base.getContext("2d");
+        bctx.drawImage(img, 0, 0, size, size);
+
+        // grayscale first
+        toGray(bctx, size);
+
+        // Copy for bilateral
+        const cBil = document.createElement("canvas");
+        cBil.width = size; cBil.height = size;
+        const ctxBil = cBil.getContext("2d");
+        ctxBil.drawImage(base, 0, 0);
+
+        function applyBilateral() {
+          const sigmaColor = parseInt(sigmaColorSlider.value);
+          const sigmaSpace = parseInt(sigmaSpaceSlider.value);
+          const diameter = 7;
+          const radius = Math.floor(diameter/2);
+
+          const inputData = ctxBil.getImageData(0,0,size,size);
+          const data = inputData.data;
+          const copy = new Uint8ClampedArray(data);
+
+          function gaussian(x,s){ return Math.exp(-(x*x)/(2*s*s)); }
+
+          for (let y=0; y<size; y++){
+            for (let x=0; x<size; x++){
+              const idx = (y*size + x)*4;
+              const g0 = copy[idx];
+
+              let sum = 0, wsum = 0;
+              for (let dy=-radius; dy<=radius; dy++){
+                for (let dx=-radius; dx<=radius; dx++){
+                  const ny = y + dy;
+                  const nx = x + dx;
+                  if (nx>=0 && nx<size && ny>=0 && ny<size){
+                    const nIdx = (ny*size + nx)*4;
+                    const gn = copy[nIdx];
+
+                    const wSpace = gaussian(Math.sqrt(dx*dx + dy*dy), sigmaSpace);
+                    const wColor = gaussian(g0 - gn, sigmaColor);
+
+                    const w = wSpace * wColor;
+                    sum += gn * w;
+                    wsum += w;
+                  }
+                }
+              }
+              data[idx] = data[idx+1] = data[idx+2] = sum/wsum;
+            }
+          }
+          ctxBil.putImageData(inputData,0,0);
+        }
+
+        applyBilateral();
+
+        // Adaptive Threshold
+        const cThr = document.createElement("canvas"); cThr.width = size; cThr.height = size;
+        const tctx = cThr.getContext("2d");
+        tctx.drawImage(cBil, 0, 0);
+        const thr = adaptiveThreshold(tctx, size);
+        tctx.putImageData(thr, 0, 0);
+
+        // Skeleton
+        const cSkel = document.createElement("canvas"); cSkel.width = size; cSkel.height = size;
+        const sctx = cSkel.getContext("2d");
+        sctx.drawImage(cThr, 0, 0);
+        const sk = skeletonize(sctx, size);
+        sctx.putImageData(sk, 0, 0);
+
+        // Card Display
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <h3>Original</h3>
+          <img src="${originalSrc}">
+
+          <h3>Grayscale (128×128)</h3>
+          <img src="${base.toDataURL()}">
+
+          <h3>Bilateral Filter</h3>
+          <img src="${cBil.toDataURL()}">
+
+          <h3>Adaptive Threshold</h3>
+          <img src="${cThr.toDataURL()}">
+
+          <h3>Skeletonized</h3>
+          <img src="${cSkel.toDataURL()}">
+        `;
+
+        container.appendChild(card);
+      }};
+    reader.readAsDataURL(file);
+  });
+});
+</script>
+</body>
+</html>
