@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klasifikasi Fase LC Nematik - Image Upload</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #2c3e50, #4a6491);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        
+        .main-content {
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        
+        .upload-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background-color: #2ecc71;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #27ae60;
+            transform: translateY(-2px);
+        }
+        
+        .btn-warning {
+            background-color: #f39c12;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background-color: #d68910;
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .preview-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .image-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+            width: 100%;
+        }
+        
+        .image-box {
+            flex: 1;
+            min-width: 300px;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .image-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            text-align: center;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #3498db;
+            width: 100%;
+        }
+        
+        .image-preview {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            background-color: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        
+        #originalImage, #resizedImage {
+            max-width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+        }
+        
+        .placeholder-text {
+            color: #7f8c8d;
+            font-style: italic;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .image-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            width: 100%;
+            text-align: center;
+            font-size: 14px;
+            color: #555;
+        }
+        
+        .dimensions {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .camera-section {
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .camera-container {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        #cameraVideo {
+            width: 100%;
+            height: auto;
+            background-color: #000;
+        }
+        
+        .camera-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+            color: #7f8c8d;
+            font-size: 14px;
+            border-top: 1px solid #eee;
+        }
+        
+        @media (max-width: 768px) {
+            .image-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .image-box {
+                max-width: 100%;
+            }
+            
+            .upload-section {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Klasifikasi Fase LC Nematik</h1>
+            <p class="subtitle">Upload gambar dan konversi ke ukuran 224x224 pixel untuk klasifikasi</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="upload-section">
+                <button class="btn btn-primary" id="uploadBtn">
+                    <i class="fas fa-upload"></i> Upload Gambar dari File
+                </button>
+                <input type="file" id="fileInput" accept="image/*">
+                
+                <button class="btn btn-success" id="cameraBtn">
+                    <i class="fas fa-camera"></i> Buka Kamera
+                </button>
+                
+                <button class="btn btn-warning" id="resetBtn">
+                    <i class="fas fa-redo"></i> Reset
+                </button>
+            </div>
+            
+            <div class="camera-section" id="cameraSection">
+                <div class="camera-container">
+                    <video id="cameraVideo" autoplay playsinline></video>
+                </div>
+                <div class="camera-controls">
+                    <button class="btn btn-success" id="captureBtn">
+                        <i class="fas fa-camera"></i> Ambil Foto
+                    </button>
+                    <button class="btn btn-warning" id="closeCameraBtn">
+                        <i class="fas fa-times"></i> Tutup Kamera
+                    </button>
+                </div>
+            </div>
+            
+            <div class="preview-section">
+                <div class="image-container">
+                    <div class="image-box">
+                        <div class="image-title">Gambar Asli</div>
+                        <div class="image-preview">
+                            <div id="originalPlaceholder" class="placeholder-text">
+                                <i class="fas fa-image" style="font-size: 40px; margin-bottom: 10px; opacity: 0.5;"></i><br>
+                                Gambar asli akan ditampilkan di sini
+                            </div>
+                            <img id="originalImage" style="display: none;">
+                        </div>
+                        <div class="image-info">
+                            Dimensi: <span id="originalDimensions" class="dimensions">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="image-box">
+                        <div class="image-title">Gambar 224x224 Pixel</div>
+                        <div class="image-preview">
+                            <div id="resizedPlaceholder" class="placeholder-text">
+                                <i class="fas fa-expand-alt" style="font-size: 40px; margin-bottom: 10px; opacity: 0.5;"></i><br>
+                                Gambar 224x224 akan ditampilkan di sini
+                            </div>
+                            <canvas id="resizedImage" style="display: none;"></canvas>
+                        </div>
+                        <div class="image-info">
+                            Dimensi: <span id="resizedDimensions" class="dimensions">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Proyek Klasifikasi Fase LC Nematik | Dibuat untuk GitHub Pages</p>
+        </footer>
+    </div>
+
+    <script>
+        // Element references
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const cameraBtn = document.getElementById('cameraBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const cameraSection = document.getElementById('cameraSection');
+        const cameraVideo = document.getElementById('cameraVideo');
+        const captureBtn = document.getElementById('captureBtn');
+        const closeCameraBtn = document.getElementById('closeCameraBtn');
+        
+        const originalImage = document.getElementById('originalImage');
+        const originalPlaceholder = document.getElementById('originalPlaceholder');
+        const originalDimensions = document.getElementById('originalDimensions');
+        
+        const resizedImage = document.getElementById('resizedImage');
+        const resizedPlaceholder = document.getElementById('resizedPlaceholder');
+        const resizedDimensions = document.getElementById('resizedDimensions');
+        
+        let stream = null;
+        let originalImageData = null;
+        
+        // Event listeners
+        uploadBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        fileInput.addEventListener('change', handleImageUpload);
+        
+        cameraBtn.addEventListener('click', openCamera);
+        
+        resetBtn.addEventListener('click', resetAll);
+        
+        captureBtn.addEventListener('click', captureImage);
+        
+        closeCameraBtn.addEventListener('click', closeCamera);
+        
+        // Fungsi untuk menangani upload gambar
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                displayOriginalImage(e.target.result);
+                resizeAndDisplayImage(e.target.result);
+            };
+            
+            reader.readAsDataURL(file);
+        }
+        
+        // Fungsi untuk menampilkan gambar asli
+        function displayOriginalImage(imageSrc) {
+            originalImage.src = imageSrc;
+            originalImage.style.display = 'block';
+            originalPlaceholder.style.display = 'none';
+            
+            // Update dimensi gambar asli
+            originalImage.onload = function() {
+                originalDimensions.textContent = `${originalImage.naturalWidth} × ${originalImage.naturalHeight} pixel`;
+                originalImageData = imageSrc;
+            };
+        }
+        
+        // Fungsi untuk resize gambar ke 224x224
+        function resizeAndDisplayImage(imageSrc) {
+            const img = new Image();
+            
+            img.onload = function() {
+                // Create canvas for resized image
+                const canvas = resizedImage;
+                const ctx = canvas.getContext('2d');
+                
+                // Set canvas size to 224x224
+                canvas.width = 224;
+                canvas.height = 224;
+                
+                // Fill with white background
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, 224, 224);
+                
+                // Calculate aspect ratio and draw image
+                const aspectRatio = img.width / img.height;
+                let drawWidth, drawHeight, offsetX = 0, offsetY = 0;
+                
+                if (aspectRatio > 1) {
+                    // Lebar lebih besar dari tinggi
+                    drawWidth = 224;
+                    drawHeight = 224 / aspectRatio;
+                    offsetY = (224 - drawHeight) / 2;
+                } else {
+                    // Tinggi lebih besar dari lebar
+                    drawHeight = 224;
+                    drawWidth = 224 * aspectRatio;
+                    offsetX = (224 - drawWidth) / 2;
+                }
+                
+                ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+                
+                // Show canvas and update dimensions
+                canvas.style.display = 'block';
+                resizedPlaceholder.style.display = 'none';
+                resizedDimensions.textContent = `${canvas.width} × ${canvas.height} pixel`;
+            };
+            
+            img.src = imageSrc;
+        }
+        
+        // Fungsi untuk membuka kamera
+        async function openCamera() {
+            try {
+                // Request acess to camera
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
+                });
+                
+                // Display camera stream
+                cameraVideo.srcObject = stream;
+                cameraSection.style.display = 'block';
+                cameraBtn.disabled = true;
+                uploadBtn.disabled = true;
+                
+            } catch (error) {
+                alert('Tidak dapat mengakses kamera: ' + error.message);
+                console.error('Camera error:', error);
+            }
+        }
+        
+        // Fungsi untuk menutup kamera
+        function closeCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            cameraSection.style.display = 'none';
+            cameraBtn.disabled = false;
+            uploadBtn.disabled = false;
+        }
+        
+        // Fungsi untuk mengambil foto dari kamera
+        function captureImage() {
+            if (!stream) return;
+            
+            // Create canvas to capture image
+            const canvas = document.createElement('canvas');
+            canvas.width = cameraVideo.videoWidth;
+            canvas.height = cameraVideo.videoHeight;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
+            
+            // Convert to data URL
+            const imageDataUrl = canvas.toDataURL('image/png');
+            
+            // Display and resize the captured image
+            displayOriginalImage(imageDataUrl);
+            resizeAndDisplayImage(imageDataUrl);
+            
+            // Close camera after capture
+            closeCamera();
+        }
+        
+        // Fungsi untuk reset semua
+        function resetAll() {
+            // Reset display
+            originalImage.style.display = 'none';
+            originalPlaceholder.style.display = 'block';
+            originalDimensions.textContent = '-';
+            
+            resizedImage.style.display = 'none';
+            resizedPlaceholder.style.display = 'block';
+            resizedDimensions.textContent = '-';
+            
+            // Reset file input
+            fileInput.value = '';
+            
+            // Close camera if open
+            if (stream) {
+                closeCamera();
+            }
+            
+            originalImageData = null;
+        }
+        
+        // Instructions on load
+        window.onload = function() {
+            console.log("Aplikasi klasifikasi fase LC Nematik dimuat.");
+            console.log("Fitur:");
+            console.log("1. Upload gambar dari file");
+            console.log("2. Ambil gambar dari kamera");
+            console.log("3. Gambar akan otomatis diresize ke 224x224 pixel");
+        };
+    </script>
+</body>
+</html>
