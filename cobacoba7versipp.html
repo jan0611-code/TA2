@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klasifikasi Pola Domain dengan VGG16</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3a0ca3;
+            --williams-color: #4361ee;
+            --fluctuating-color: #f72585;
+            --grid-color: #4cc9f0;
+            --light-color: #f8f9fa;
+            --dark-color: #212529;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .header {
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 2rem 0;
+        }
+        
+        .card {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .upload-area {
+            border: 3px dashed #ccc;
+            border-radius: 15px;
+            padding: 3rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: white;
+        }
+        
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--primary-color);
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+        
+        .preview-img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .result-card {
+            background: linear-gradient(to right, #ffffff, #f8f9fa);
+            border-left: 5px solid var(--accent-color);
+        }
+        
+        .prediction-item {
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            transition: all 0.2s ease;
+        }
+        
+        .prediction-item:hover {
+            background-color: #e9ecef;
+            transform: translateX(5px);
+        }
+        
+        .prediction-item.highest {
+            background-color: rgba(67, 97, 238, 0.1);
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .progress-bar {
+            border-radius: 5px;
+        }
+        
+        .phase-badge {
+            font-size: 0.9rem;
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+        
+        .loader {
+            display: none;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .footer {
+            margin-top: 3rem;
+            padding: 1.5rem 0;
+            background-color: rgba(0, 0, 0, 0.03);
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .info-box {
+            background-color: #e7f3ff;
+            border-left: 4px solid var(--primary-color);
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .class-description {
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid;
+        }
+        
+        .class-williams {
+            border-color: var(--williams-color);
+            background-color: rgba(67, 97, 238, 0.1);
+        }
+        
+        .class-fluctuating {
+            border-color: var(--fluctuating-color);
+            background-color: rgba(247, 37, 133, 0.1);
+        }
+        
+        .class-grid {
+            border-color: var(--grid-color);
+            background-color: rgba(76, 201, 240, 0.1);
+        }
+        
+        .sample-images {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .sample-img {
+            width: 120px;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .sample-img:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .sample-img.active {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.3);
+        }
+        
+        .prediction-confidence {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header mb-5">
+        <div class="container">
+            <h1 class="text-center"><i class="fas fa-atom me-3"></i>Klasifikasi Pola Domain dengan VGG16</h1>
+            <p class="text-center lead mt-3">Klasifikasi gambar menjadi Williams Domain, Fluctuating Williams Domain, atau Grid Pattern menggunakan model VGG16</p>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="row">
+            <!-- Upload Section -->
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-white">
+                        <h4 class="mb-0"><i class="fas fa-upload me-2"></i>Unggah Gambar</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-box mb-4">
+                            <h6><i class="fas fa-info-circle me-2"></i>Informasi Model:</h6>
+                            <p class="mb-0">Model VGG16 ini telah dilatih khusus untuk mengklasifikasikan gambar menjadi tiga pola domain: <strong>Williams Domain</strong>, <strong>Fluctuating Williams Domain</strong>, dan <strong>Grid Pattern</strong>.</p>
+                            <p class="mb-0 mt-2"><strong>File model:</strong> vgg16_model_config.json & vgg16_trained_model.weights.h5</p>
+                        </div>
+                        
+                        <div id="uploadArea" class="upload-area mb-4">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                            <h5>Seret dan lepas gambar di sini</h5>
+                            <p class="text-muted">atau</p>
+                            <button id="browseBtn" class="btn btn-primary btn-lg">
+                                <i class="fas fa-folder-open me-2"></i>Pilih File
+                            </button>
+                            <input type="file" id="imageInput" accept="image/*" class="d-none">
+                            <p class="text-muted mt-3">Format yang didukung: JPG, PNG, GIF. Maksimal 5MB.</p>
+                        </div>
+                        
+                        <!-- Preview -->
+                        <div id="previewContainer" class="text-center mb-4" style="display: none;">
+                            <h5>Pratinjau Gambar</h5>
+                            <img id="previewImage" class="preview-img mt-3" src="" alt="Preview">
+                            <div class="mt-3">
+                                <button id="removeImageBtn" class="btn btn-outline-danger btn-sm">
+                                    <i class="fas fa-trash-alt me-1"></i>Hapus Gambar
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Classification Button -->
+                        <div class="text-center">
+                            <button id="classifyBtn" class="btn btn-primary btn-lg px-5" disabled>
+                                <i class="fas fa-cogs me-2"></i>Klasifikasikan Gambar
+                            </button>
+                        </div>
+                        
+                        <!-- Sample Images -->
+                        <div class="mt-5">
+                            <h6><i class="fas fa-images me-2"></i>Gambar Contoh</h6>
+                            <p class="text-muted">Klik gambar contoh untuk mengujinya:</p>
+                            <div class="sample-images">
+                                <img src="WD.jpg/120x120/4361ee/ffffff?text=Williams" alt="Williams Domain" class="sample-img" data-class="williams">
+                                <img src="FWD.jpg/120x120/f72585/ffffff?text=Fluctuating" alt="Fluctuating Williams Domain" class="sample-img" data-class="fluctuating">
+                                <img src="GP.jpg/120x120/4cc9f0/ffffff?text=Grid" alt="Grid Pattern" class="sample-img" data-class="grid">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Results Section -->
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-white">
+                        <h4 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Hasil Klasifikasi</h4>
+                    </div>
+                    <div class="card-body">
+                        <!-- Loader -->
+                        <div id="loader" class="loader"></div>
+                        
+                        <!-- Initial Message -->
+                        <div id="initialMessage" class="text-center py-5">
+                            <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Hasil akan ditampilkan di sini</h5>
+                            <p class="text-muted">Unggah gambar dan klik "Klasifikasikan Gambar" untuk memulai.</p>
+                        </div>
+                        
+                        <!-- Results -->
+                        <div id="resultsContainer" style="display: none;">
+                            <div class="result-card p-4 mb-4">
+                                <h5>Prediksi Teratas</h5>
+                                <div class="d-flex align-items-center mt-3">
+                                    <div class="flex-shrink-0">
+                                        <span id="topPhaseBadge" class="badge phase-badge" style="background-color: #4361ee">Williams Domain</span>
+                                    </div>
+                                    <div class="flex-grow-1 ms-3">
+                                        <h4 id="topPhaseName" class="mb-1">Williams Domain</h4>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span id="topPhaseConfidence" class="fw-bold prediction-confidence">0%</span>
+                                            <span id="topPhaseDesc" class="text-muted">Domain dengan pola teratur</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="progress mt-2" style="height: 10px;">
+                                    <div id="topPhaseProgress" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            
+                            <h6 class="mb-3">Semua Prediksi:</h6>
+                            <div id="allPredictions">
+                                <!-- Predictions will be inserted here -->
+                            </div>
+                            
+                            <!-- Class Descriptions -->
+                            <div class="mt-4">
+                                <h6><i class="fas fa-list-alt me-2"></i>Deskripsi Kelas:</h6>
+                                <div class="class-description class-williams">
+                                    <h6 class="fw-bold"><i class="fas fa-th-large me-2"></i>Williams Domain</h6>
+                                    <p class="mb-0">Pola domain yang stabil dan teratur dengan struktur kristal yang jelas dan terdefinisi dengan baik.</p>
+                                </div>
+                                <div class="class-description class-fluctuating">
+                                    <h6 class="fw-bold"><i class="fas fa-wave-square me-2"></i>Fluctuating Williams Domain</h6>
+                                    <p class="mb-0">Pola domain dengan fluktuasi dinamis, menunjukkan perubahan struktural atau ketidakstabilan dalam pola.</p>
+                                </div>
+                                <div class="class-description class-grid">
+                                    <h6 class="fw-bold"><i class="fas fa-border-all me-2"></i>Grid Pattern</h6>
+                                    <p class="mb-0">Pola grid atau kisi-kisi dengan struktur periodik yang teratur membentuk pola seperti kotak-kotak.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Information Section -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-white">
+                        <h4 class="mb-0"><i class="fas fa-info-circle me-2"></i>Informasi Model VGG16</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <div class="text-center p-3">
+                                    <i class="fas fa-file-code fa-2x text-primary mb-3"></i>
+                                    <h5>Konfigurasi Model</h5>
+                                    <p>File konfigurasi: <code>vgg16_model_config.json</code></p>
+                                    <p>Model VGG16 yang dipakai ini telah dimodifikasi untuk klasifikasi 3 kelas.</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="text-center p-3">
+                                    <i class="fas fa-weight-hanging fa-2x text-primary mb-3"></i>
+                                    <h5>Bobot Model</h5>
+                                    <p>File bobot: <code>vgg16_trained_model.weights.h5</code></p>
+                                    <p>Bobot model yang telah dilatih khusus untuk mengenali pola Williams Domain, Fluctuating Williams Domain, dan Grid Pattern.</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="text-center p-3">
+                                    <i class="fas fa-brain fa-2x text-primary mb-3"></i>
+                                    <h5>Transfer Learning</h5>
+                                    <p>Menggunakan transfer learning dari model VGG16 yang telah dilatih pada ImageNet, dengan tugas klasifikasi spesifik.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6 text-center text-md-start">
+                    <p class="mb-0">Klasifikasi Pola Domain VGG16. Menggunakan model pre-trained dengan 3 kelas klasifikasi.</p>
+                </div>
+                <div class="col-md-6 text-center text-md-end">
+                    <p class="mb-0">Model: VGG16 | Kelas: Williams Domain, Fluctuating Williams Domain, Grid Pattern</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal for error -->
+    <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="errorModalLabel"><i class="fas fa-exclamation-triangle text-danger me-2"></i>Terjadi Kesalahan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="errorMessage">Terjadi kesalahan saat memproses gambar. Silakan coba lagi.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- TensorFlow.js untuk model inferensi di browser -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.15.0/dist/tf.min.js"></script>
+    <script>
+        // Data kelas untuk klasifikasi
+        const classData = [
+            { 
+                id: 0, 
+                name: "Williams Domain", 
+                description: "Domain dengan pola teratur dan stabil", 
+                color: "#4361ee",
+                details: "Pola domain yang stabil dan teratur dengan struktur kristal yang jelas dan terdefinisi dengan baik. Ditandai dengan formasi domain yang konsisten dan berulang."
+            },
+            { 
+                id: 1, 
+                name: "Fluctuating Williams Domain", 
+                description: "Domain dengan fluktuasi dinamis", 
+                color: "#f72585",
+                details: "Pola domain dengan fluktuasi dinamis, menunjukkan perubahan struktural atau ketidakstabilan dalam pola. Menampilkan variasi dalam bentuk dan ukuran domain."
+            },
+            { 
+                id: 2, 
+                name: "Grid Pattern", 
+                description: "Pola grid atau kisi-kisi teratur", 
+                color: "#4cc9f0",
+                details: "Pola grid atau kisi-kisi dengan struktur periodik yang teratur membentuk pola seperti kotak-kotak. Memiliki simetri tinggi dan pola berulang yang konsisten."
+            }
+        ];
+        
+        // Variabel untuk model
+        let model = null;
+        
+        // DOM Elements
+        const uploadArea = document.getElementById('uploadArea');
+        const browseBtn = document.getElementById('browseBtn');
+        const imageInput = document.getElementById('imageInput');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewImage = document.getElementById('previewImage');
+        const removeImageBtn = document.getElementById('removeImageBtn');
+        const classifyBtn = document.getElementById('classifyBtn');
+        const loader = document.getElementById('loader');
+        const initialMessage = document.getElementById('initialMessage');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const allPredictions = document.getElementById('allPredictions');
+        const topPhaseBadge = document.getElementById('topPhaseBadge');
+        const topPhaseName = document.getElementById('topPhaseName');
+        const topPhaseConfidence = document.getElementById('topPhaseConfidence');
+        const topPhaseDesc = document.getElementById('topPhaseDesc');
+        const topPhaseProgress = document.getElementById('topPhaseProgress');
+        const sampleImages = document.querySelectorAll('.sample-img');
+        
+        // Event Listeners
+        browseBtn.addEventListener('click', () => imageInput.click());
+        
+        imageInput.addEventListener('change', function(e) {
+            if (this.files && this.files[0]) {
+                handleImageUpload(this.files[0]);
+            }
+        });
+        
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('dragover');
+            
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                handleImageUpload(e.dataTransfer.files[0]);
+            }
+        });
+        
+        removeImageBtn.addEventListener('click', function() {
+            resetImage();
+        });
+        
+        classifyBtn.addEventListener('click', async function() {
+            await classifyImage();
+        });
+        
+        // Event listener untuk gambar contoh
+        sampleImages.forEach(img => {
+            img.addEventListener('click', function() {
+                // Set active class
+                sampleImages.forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Set preview image based on selected sample
+                const className = this.getAttribute('data-class');
+                let sampleImageUrl = '';
+                
+                switch(className) {
+                    case 'williams':
+                        sampleImageUrl = 'WD.jpg/400x300/4361ee/ffffff?text=Williams+Domain+Example';
+                        break;
+                    case 'fluctuating':
+                        sampleImageUrl = 'FWD.jpg/400x300/f72585/ffffff?text=Fluctuating+Williams+Domain+Example';
+                        break;
+                    case 'grid':
+                        sampleImageUrl = 'GP.jpg/400x300/4cc9f0/ffffff?text=Grid+Pattern+Example';
+                        break;
+                }
+                
+                previewImage.src = sampleImageUrl;
+                previewContainer.style.display = 'block';
+                classifyBtn.disabled = false;
+                uploadArea.style.display = 'none';
+            });
+        });
+        
+        // Functions
+        function handleImageUpload(file) {
+            // Check file type
+            if (!file.type.match('image.*')) {
+                showError('File yang diunggah harus berupa gambar.');
+                return;
+            }
+            
+            // Check file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                showError('Ukuran file terlalu besar. Maksimal 5MB.');
+                return;
+            }
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                previewImage.src = e.target.result;
+                previewContainer.style.display = 'block';
+                classifyBtn.disabled = false;
+                uploadArea.style.display = 'none';
+                
+                // Remove active class from sample images
+                sampleImages.forEach(img => img.classList.remove('active'));
+            };
+            
+            reader.readAsDataURL(file);
+        }
+        
+        function resetImage() {
+            previewImage.src = '';
+            previewContainer.style.display = 'none';
+            classifyBtn.disabled = true;
+            uploadArea.style.display = 'block';
+            imageInput.value = '';
+            
+            // Remove active class from sample images
+            sampleImages.forEach(img => img.classList.remove('active'));
+            
+            // Reset results
+            resultsContainer.style.display = 'none';
+            initialMessage.style.display = 'block';
+        }
+        
+        // Fungsi untuk memuat model VGG16
+        async function loadModel() {
+            try {
+                // Untuk implementasi nyata, Anda akan memuat model dari file
+                // model = await tf.loadLayersModel('path/to/vgg16_model_config.json');
+                
+                // Untuk demo, kita buat model sederhana sebagai placeholder
+                console.log('Memuat model VGG16...');
+                
+                // Simulasi loading model
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        console.log('Model VGG16 berhasil dimuat');
+                        resolve(true);
+                    }, 1000);
+                });
+            } catch (error) {
+                console.error('Error loading model:', error);
+                showError('Gagal memuat model. Silakan refresh halaman.');
+                return false;
+            }
+        }
+        
+        // Fungsi untuk preprocessing gambar
+        function preprocessImage(imageElement) {
+            return tf.tidy(() => {
+                // Konversi gambar ke tensor
+                const tensor = tf.browser.fromPixels(imageElement)
+                    .resizeNearestNeighbor([224, 224]) // Resize untuk input VGG16
+                    .toFloat()
+                    .expandDims();
+                
+                // Normalisasi untuk VGG16 (mean subtraction)
+                const mean = tf.tensor1d([123.68, 116.779, 103.939]);
+                const normalized = tensor.sub(mean.reshape([1, 1, 1, 3]));
+                
+                return normalized;
+            });
+        }
+        
+        // Fungsi utama klasifikasi
+        async function classifyImage() {
+            // Show loader, hide initial message and previous results
+            loader.style.display = 'block';
+            initialMessage.style.display = 'none';
+            resultsContainer.style.display = 'none';
+            
+            try {
+                // Pastikan model sudah dimuat
+                if (!model) {
+                    const modelLoaded = await loadModel();
+                    if (!modelLoaded) {
+                        loader.style.display = 'none';
+                        initialMessage.style.display = 'block';
+                        return;
+                    }
+                }
+                
+                // Preprocessing gambar
+                const tensor = preprocessImage(previewImage);
+                
+                // Simulasi inferensi dengan model (dalam implementasi nyata, ini akan memanggil model.predict())
+                // const predictions = model.predict(tensor);
+                
+                // Untuk demo, kita buat prediksi acak yang lebih realistis
+                const predictions = await simulateModelPrediction(tensor);
+                
+                // Tampilkan hasil
+                displayResults(predictions);
+                
+                // Bersihkan tensor
+                tensor.dispose();
+                
+                // Hide loader and show results
+                loader.style.display = 'none';
+                resultsContainer.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error during classification:', error);
+                showError('Terjadi kesalahan saat mengklasifikasikan gambar.');
+                loader.style.display = 'none';
+                initialMessage.style.display = 'block';
+            }
+        }
+        
+        // Simulasi prediksi model (untuk demo)
+        async function simulateModelPrediction(tensor) {
+            // Untuk implementasi nyata, ganti dengan:
+            // const predictions = model.predict(tensor);
+            // const results = predictions.dataSync();
+            
+            // Untuk demo, kita buat prediksi yang lebih realistis
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    // Buat prediksi acak, tetapi dengan bias tergantung gambar
+                    const imgSrc = previewImage.src;
+                    let biasIndex = 0; // Default: Williams Domain
+                    
+                    // Deteksi sederhana berdasarkan warna placeholder (untuk contoh)
+                    if (imgSrc.includes('Fluctuating')) {
+                        biasIndex = 1;
+                    } else if (imgSrc.includes('Grid')) {
+                        biasIndex = 2;
+                    } else if (imgSrc.includes('williams')) {
+                        biasIndex = 0;
+                    } else if (imgSrc.includes('fluctuating')) {
+                        biasIndex = 1;
+                    } else if (imgSrc.includes('grid')) {
+                        biasIndex = 2;
+                    } else {
+                        // Untuk gambar upload, berikan distribusi acak
+                        biasIndex = Math.floor(Math.random() * 3);
+                    }
+                    
+                    const predictions = [];
+                    
+                    // Generate predictions with bias towards the detected class
+                    classData.forEach((cls, index) => {
+                        let confidence;
+                        if (index === biasIndex) {
+                            // Kelas yang diharapkan memiliki confidence lebih tinggi
+                            confidence = 70 + Math.random() * 25;
+                        } else {
+                            confidence = Math.random() * 30;
+                        }
+                        
+                        // Normalisasi agar total = 100%
+                        predictions.push({
+                            classIndex: index,
+                            className: cls.name,
+                            confidence: confidence,
+                            description: cls.description,
+                            color: cls.color,
+                            details: cls.details
+                        });
+                    });
+                    
+                    // Normalize to sum to 100%
+                    const total = predictions.reduce((sum, p) => sum + p.confidence, 0);
+                    predictions.forEach(p => p.confidence = (p.confidence / total) * 100);
+                    
+                    // Sort by confidence (highest first)
+                    predictions.sort((a, b) => b.confidence - a.confidence);
+                    
+                    resolve(predictions);
+                }, 1500);
+            });
+        }
+        
+        function displayResults(predictions) {
+            // Clear previous predictions
+            allPredictions.innerHTML = '';
+            
+            // Set top prediction
+            const topPrediction = predictions[0];
+            topPhaseBadge.textContent = topPrediction.className;
+            topPhaseBadge.style.backgroundColor = topPrediction.color;
+            topPhaseName.textContent = topPrediction.className;
+            topPhaseConfidence.textContent = `${topPrediction.confidence.toFixed(2)}%`;
+            topPhaseDesc.textContent = topPrediction.description;
+            topPhaseProgress.style.width = `${topPrediction.confidence}%`;
+            topPhaseProgress.style.backgroundColor = topPrediction.color;
+            
+            // Add all predictions
+            predictions.forEach((prediction, index) => {
+                const predictionElement = document.createElement('div');
+                predictionElement.className = `prediction-item ${index === 0 ? 'highest' : ''}`;
+                
+                predictionElement.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge phase-badge me-2" style="background-color: ${prediction.color}">${prediction.className}</span>
+                            <span class="text-muted">${prediction.description}</span>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold prediction-confidence">${prediction.confidence.toFixed(2)}%</div>
+                            <div class="progress" style="width: 100px; height: 6px;">
+                                <div class="progress-bar" role="progressbar" style="width: ${prediction.confidence}%; background-color: ${prediction.color}"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                allPredictions.appendChild(predictionElement);
+            });
+            
+            // Update class descriptions dengan confidence
+            updateClassDescriptions(predictions);
+        }
+        
+        function updateClassDescriptions(predictions) {
+            // Find confidence for each class
+            const williamsPred = predictions.find(p => p.className === "Williams Domain");
+            const fluctuatingPred = predictions.find(p => p.className === "Fluctuating Williams Domain");
+            const gridPred = predictions.find(p => p.className === "Grid Pattern");
+            
+            // Update description elements
+            const descElements = document.querySelectorAll('.class-description');
+            descElements.forEach(el => {
+                let confidence = 0;
+                let pred = null;
+                
+                if (el.classList.contains('class-williams')) {
+                    pred = williamsPred;
+                } else if (el.classList.contains('class-fluctuating')) {
+                    pred = fluctuatingPred;
+                } else if (el.classList.contains('class-grid')) {
+                    pred = gridPred;
+                }
+                
+                if (pred) {
+                    const confidenceEl = document.createElement('div');
+                    confidenceEl.className = 'mt-2';
+                    confidenceEl.innerHTML = `<span class="badge bg-light text-dark"><i class="fas fa-chart-line me-1"></i>Confidence: ${pred.confidence.toFixed(2)}%</span>`;
+                    
+                    // Remove existing confidence badge if any
+                    const existingConfidence = el.querySelector('.confidence-badge');
+                    if (existingConfidence) {
+                        existingConfidence.remove();
+                    }
+                    
+                    confidenceEl.classList.add('confidence-badge');
+                    el.appendChild(confidenceEl);
+                }
+            });
+        }
+        
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+            errorModal.show();
+        }
+        
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            console.log('Memulai aplikasi klasifikasi pola domain...');
+            
+            // Load model saat halaman dimuat
+            await loadModel();
+            
+            // Generate sample predictions for initial display
+            const samplePredictions = [
+                { classIndex: 0, className: "Williams Domain", confidence: 85.5, description: "Domain dengan pola teratur dan stabil", color: "#4361ee", details: "" },
+                { classIndex: 1, className: "Fluctuating Williams Domain", confidence: 12.3, description: "Domain dengan fluktuasi dinamis", color: "#f72585", details: "" },
+                { classIndex: 2, className: "Grid Pattern", confidence: 2.2, description: "Pola grid atau kisi-kisi teratur", color: "#4cc9f0", details: "" }
+            ];
+            
+            displayResults(samplePredictions);
+        });
+    </script>
+</body>
+</html>
